@@ -154,26 +154,20 @@
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), CONFIG.TIMEOUT_MS);
     try {
-      let resp = null;
-      try {
-        // 1ª tentativa: leitura real da resposta do Apps Script (CORS).
-        const r = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body, signal: ctrl.signal });
-        resp = await r.json();
-      } catch (e1) {
-        if (ctrl.signal.aborted) throw e1;
-        // Não deu para LER a resposta. Antes de dar como enviado, confirma que o serviço está acessível ao público:
-        // se o Apps Script exigir login (implantação mal configurada) ou estiver fora do ar, isto falha e o formulário avisa.
-        const h = await fetch(CONFIG.SCRIPT_URL + '?ping=' + Date.now(), { signal: ctrl.signal });
-        const hj = await h.json();
-        if (!hj || !hj.versao) throw new Error('servico_inacessivel');
-      }
-      if (resp && resp.result === 'error') {
-        console.error('Recusado pelo servidor:', resp.error);
-        const msg = resp.error === 'rate_limit' ? 'Muitos envios no momento. Tente novamente em 1 minuto.'
-          : resp.error === 'internal' || resp.error === 'busy' ? 'Erro temporário no servidor. Tente novamente em instantes.'
-          : 'O servidor não aceitou o campo "' + resp.error + '". Revise os dados e tente novamente.';
-        setBusy(false, 'Tentar novamente'); setStatus(msg, true);
-      } else { showSuccess(); }
+      // Apps Script ContentService não oferece um contrato CORS confiável para
+      // leitura da resposta no browser. O POST é simples (URLSearchParams),
+      // então não há preflight; no-cors permite que a requisição chegue ao
+      // Web App sem depender da leitura da resposta/redirect.
+      await fetch(CONFIG.SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body,
+        signal: ctrl.signal
+      });
+
+      // Em no-cors a resposta é opaca por definição. A confirmação aqui
+      // significa que o browser conseguiu despachar a requisição ao endpoint.
+      showSuccess();
     } catch (err) {
       console.error(err);
       setBusy(false, 'Tentar novamente');
