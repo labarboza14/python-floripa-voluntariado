@@ -3,7 +3,7 @@
 
   // ===== Configuração (único ponto a editar) =====
   const CONFIG = {
-    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxzpGwfcoIQJWoXiqWznISKjfYqIjhq1qp9C_iVHPpteyjmD03PGYJCVfXpr6XSc2i4/exec',
+    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzlTIbmDLl1ngxoR34EKaeSduKzhsz_ymntlxmbpjNRt32RIR5fb3N3R9ky-DrFIRkf/exec',
     MIN_SECONDS: 3,        // envio mais rápido que isso é tratado como robô
     TIMEOUT_MS: 15000,
     DRAFT_KEY: 'pf_rascunho_v2'
