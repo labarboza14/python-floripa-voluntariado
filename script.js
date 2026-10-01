@@ -161,8 +161,11 @@
         resp = await r.json();
       } catch (e1) {
         if (ctrl.signal.aborted) throw e1;
-        // Fallback: se a leitura falhar, reenvia sem ler a resposta (o servidor ignora e-mail repetido).
-        await fetch(CONFIG.SCRIPT_URL, { method: 'POST', mode: 'no-cors', body, signal: ctrl.signal });
+        // Não deu para LER a resposta. Antes de dar como enviado, confirma que o serviço está acessível ao público:
+        // se o Apps Script exigir login (implantação mal configurada) ou estiver fora do ar, isto falha e o formulário avisa.
+        const h = await fetch(CONFIG.SCRIPT_URL + '?ping=' + Date.now(), { signal: ctrl.signal });
+        const hj = await h.json();
+        if (!hj || !hj.versao) throw new Error('servico_inacessivel');
       }
       if (resp && resp.result === 'error') {
         console.error('Recusado pelo servidor:', resp.error);
@@ -174,7 +177,7 @@
     } catch (err) {
       console.error(err);
       setBusy(false, 'Tentar novamente');
-      setStatus('Não foi possível enviar agora. Seus dados continuam aqui: verifique a conexão e tente novamente.', true);
+      setStatus('Não conseguimos confirmar o envio. Seus dados continuam aqui: tente novamente em instantes ou fale com a organização.', true);
     } finally { clearTimeout(timer); }
   });
 })();
