@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voluntariado | Python Floripa</title>
+  <meta name="description" content="Seja voluntário(a) na Python Floripa: dados, site, comunicação e apoio nos eventos. Inscrições abertas para o ciclo semestral.">
+  <meta name="theme-color" content="#0b0f19">
+  <meta property="og:title" content="Voluntariado | Python Floripa">
+  <meta property="og:description" content="Do voluntariado ao portfólio: colabore com a comunidade Python de Florianópolis.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://script.google.com https://*.googleusercontent.com; form-action 'none'; base-uri 'none'">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%8D%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css?v=5">
+</head>
+<body>
+  <a class="skip-link" href="#candidatura">Ir para o formulário</a>
+
+  <nav>
+    <div class="container">
+      <div class="brand">Python <span>Floripa</span></div>
+    </div>
+  </nav>
+
+  <main>
+  <header class="hero">
+    <div class="container">
+      <div class="badge-pill">
+        <span></span> Ciclo Semestral de Voluntariado
+      </div>
+      <h1>Do Voluntariado ao Portfólio</h1>
+      <p>
+        Que bom ter você por aqui e com vontade de somar com a Python Floripa. Todas as pessoas são bem-vindas: não precisa saber tudo, basta ter vontade de colaborar e colocar a mão na massa.
+      </p>
+      <a href="#candidatura" class="btn-hero">Quero Fazer Parte</a>
+    </div>
+  </header>
+
+  <!-- Trilhas de Ajuda -->
+  <section>
+    <div class="container">
+      <div class="section-header">
+        <h2>Onde precisamos de ajuda</h2>
+        <p>Você pode focar no que já domina ou escolher uma área onde quer aprender na prática.</p>
+      </div>
+
+      <div class="grid-4">
+        <div class="glass-card">
+          <h3>Dados & Métricas</h3>
+          <p>Organizar dados dos encontros, gerar relatórios de presença e manter os números da comunidade organizados.</p>
+        </div>
+
+        <div class="glass-card">
+          <h3>Site & Git</h3>
+          <p>Cultura Git First: manter o nosso repositório no GitHub, atualizar páginas e aplicar melhorias no site.</p>
+        </div>
+
+        <div class="glass-card">
+          <h3>Comunicação & Redes</h3>
+          <p>Divulgação dos encontros, fotos, publicação nas redes sociais e contato com a comunidade.</p>
+        </div>
+
+        <div class="glass-card">
+          <h3>No Dia do Evento</h3>
+          <p>Recepção na porta, credenciamento, apoio com palestrantes e suporte geral para o encontro presencial acontecer.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Como Trabalhamos & O que Oferecemos -->
+  <section>
+    <div class="container">
+      <div class="section-header">
+        <h2>Como funciona na prática</h2>
+        <p>Voluntariado não é emprego: é um compromisso mútuo de colaboração e respeito pelo tempo de cada pessoa.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="benefit-item">
+          <h4>Você nunca está só, mas precisa de iniciativa</h4>
+          <p>A organização está aqui para orientar, tirar dúvidas e desbloquear caminhos. No entanto, esperamos autonomia para buscar soluções, dar ideias e conduzir as suas tarefas de ponta a ponta.</p>
+        </div>
+
+        <div class="benefit-item">
+          <h4>Cultura de colaboração e responsabilidade</h4>
+          <p>Aqui você exercita comunicação, mediação e trabalho em equipe. Se você assumir uma demanda, cuide dela; se o tempo apertar, o segredo é sinalizar a tempo para nos reorganizarmos.</p>
+        </div>
+
+        <div class="benefit-item">
+          <h4>Troca de conhecimento sincera</h4>
+          <p>Você colabora com o que já sabe para ajudar quem está ao seu lado e encontra espaço seguro para desenvolver as habilidades que ainda precisa destravar.</p>
+        </div>
+
+        <div class="benefit-item">
+          <h4>Reconhecimento comunitário</h4>
+          <p>Ao concluir o ciclo com entregas concluídas, você recebe certificado com horas, badge digital para o seu perfil e recomendação nominal no LinkedIn.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Formulário -->
+  <section class="form-section" id="candidatura">
+    <div class="container">
+      <div class="section-header">
+        <h2>Formulário de Inscrição</h2>
+        <p>Responda com toda a sinceridade. Queremos entender seu momento e suas expectativas.</p>
+      </div>
+
+      <div class="form-wrapper">
+        <form id="volunteerForm" novalidate>
+          <p class="req-note"><span class="req" aria-hidden="true">*</span> Campos obrigatórios</p>
+          <div class="form-group">
+            <label for="nome">Nome completo <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="nome" name="nome" required minlength="3" maxlength="100" autocomplete="name" placeholder="Nome e sobrenome" aria-describedby="nome-erro">
+            <p class="field-error" id="nome-erro"></p>
+          </div>
+          <div class="field-row">
+            <div class="form-group">
+            <label for="email">E-mail <span class="req" aria-hidden="true">*</span></label>
+            <input type="email" id="email" name="email" required maxlength="120" autocomplete="email" inputmode="email" placeholder="seu.email@exemplo.com" aria-describedby="email-erro">
+            <p class="field-error" id="email-erro"></p>
+          </div>
+            <div class="form-group">
+            <label for="whatsapp">WhatsApp com DDD <span class="req" aria-hidden="true">*</span></label>
+            <input type="tel" id="whatsapp" name="whatsapp" required maxlength="16" autocomplete="tel-national" inputmode="tel" placeholder="(48) 99999-9999" aria-describedby="whatsapp-erro">
+            <p class="field-error" id="whatsapp-erro"></p>
+          </div>
+          </div>
+          <div class="form-group">
+            <label for="perfil">LinkedIn, GitHub ou portfólio (opcional)</label>
+            <input type="url" id="perfil" name="perfil" maxlength="200" autocomplete="url" inputmode="url" placeholder="github.com/seu-usuario" aria-describedby="perfil-erro">
+            <p class="field-error" id="perfil-erro"></p>
+          </div>
+
+          <fieldset class="form-group" id="trilhas-grupo" aria-describedby="trilhas-erro">
+            <legend>Em qual(is) frente(s) você mais gostaria de colaborar? <span class="req" aria-hidden="true">*</span></legend>
+            <div class="checkbox-container">
+              <label class="checkbox-item"><input type="checkbox" name="trilha" value="Dados & Métricas"> Dados &amp; Métricas</label>
+              <label class="checkbox-item"><input type="checkbox" name="trilha" value="Site & Git"> Site &amp; Git</label>
+              <label class="checkbox-item"><input type="checkbox" name="trilha" value="Comunicação & Redes"> Comunicação &amp; Redes</label>
+              <label class="checkbox-item"><input type="checkbox" name="trilha" value="Apoio no Dia do Evento"> Apoio no Dia do Evento</label>
+            </div>
+            <p class="field-error" id="trilhas-erro"></p>
+          </fieldset>
+
+          <div class="form-group">
+            <label for="motivacao">O que você quer aprender e o que pode ensinar ou colaborar? <span class="req" aria-hidden="true">*</span></label>
+            <p class="input-hint" id="motivacao-dica">Conte de forma simples: o que você já sabe e quer compartilhar, e o que quer exercitar neste ciclo (mínimo 20 caracteres).</p>
+            <textarea id="motivacao" name="motivacao" rows="4" required minlength="20" maxlength="1000" placeholder="Escreva um pouco sobre as suas ideias e vontades..." aria-describedby="motivacao-dica motivacao-erro"></textarea>
+            <div class="counter" aria-hidden="true"><span id="contador">0</span>/1000</div>
+            <p class="field-error" id="motivacao-erro"></p>
+          </div>
+
+          <div class="form-group">
+            <label for="disponibilidade">Qual é a sua disponibilidade real de tempo? <span class="req" aria-hidden="true">*</span></label>
+            <select id="disponibilidade" name="disponibilidade" required aria-describedby="disponibilidade-erro">
+              <option value="" disabled selected>Escolha a opção que melhor reflete a sua rotina...</option>
+              <option value="Apenas no dia dos eventos presenciais">Consigo ajudar apenas no dia dos encontros presenciais</option>
+              <option value="Aprox. 2 horas por semana">Cerca de 2 horas por semana (tarefas pontuais assíncronas)</option>
+              <option value="Aprox. 4 horas por semana">Cerca de 4 horas por semana (acompanhamento ativo)</option>
+              <option value="Mais de 4 horas por semana">Mais de 4 horas por semana</option>
+            </select>
+            <p class="field-error" id="disponibilidade-erro"></p>
+          </div>
+
+          <fieldset class="form-group">
+            <legend>Nosso pacto de comunicação transparente</legend>
+            <div class="pact-box">
+              <p class="input-hint">Nós sabemos que a vida acontece: imprevistos surgem, trabalho aperta e prioridades mudam. Se a qualquer momento você precisar dar um passo atrás ou sair, <strong>está tudo bem cair fora</strong> — a única coisa que pedimos de coração é que nos avise com antecedência, em vez de simplesmente parar de responder. Assim, nos reorganizamos sem sobrecarregar ninguém.</p>
+              <label class="checkbox-item plain"><input type="checkbox" id="pacto" required aria-describedby="pacto-erro"> <span>Entendido! Me comprometo a manter uma comunicação franca e transparente com a equipe. <span class="req" aria-hidden="true">*</span></span></label>
+              <p class="field-error" id="pacto-erro"></p>
+            </div>
+          </fieldset>
+
+          <div class="form-group consent">
+            <label class="checkbox-item plain"><input type="checkbox" id="consentimento" required aria-describedby="consentimento-erro"> <span>Concordo com o uso dos meus dados para contato sobre o voluntariado, conforme a <a href="privacidade.html" target="_blank" rel="noopener noreferrer">Política de Privacidade</a>. <span class="req" aria-hidden="true">*</span></span></label>
+            <p class="field-error" id="consentimento-erro"></p>
+          </div>
+
+          <div class="hp" aria-hidden="true"><label>Não preencha este campo<input type="text" id="hp_contato" name="hp_contato" tabindex="-1" autocomplete="off"></label></div>
+
+          <button type="submit" class="btn-submit" id="submitBtn"><span class="spinner" hidden></span><span class="btn-label">Enviar minha inscrição</span></button>
+          <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
+          <p class="privacy-note">Seus dados são usados só pela organização da Python Floripa para contato sobre o voluntariado. Você pode pedir a exclusão a qualquer momento (veja a política).</p>
+        </form>
+        <div class="success" id="sucesso" tabindex="-1" hidden>
+          <div class="emoji" aria-hidden="true">🐍</div>
+          <h3>Inscrição recebida!</h3>
+          <p>Obrigado por querer construir a Python Floripa com a gente. Entraremos em contato pelo WhatsApp ou e-mail assim que organizarmos as equipes.</p>
+          <p>Se precisar corrigir algo, é só responder ao nosso contato.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      Python Floripa • Feito de pessoas para pessoas em Florianópolis/SC.
+    </div>
+    <p class="footer-links"><a href="privacidade.html">Política de Privacidade</a></p>
+  </footer>
+
+<script src="script.js?v=5" defer></script>
+</body>
+</html>
