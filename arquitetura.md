@@ -21,3 +21,7 @@
 - Após editar `Code.gs`: **Nova versão** da implantação (salvar não atualiza o `/exec`).
 - Acesso: *Executar como Eu* / *Qualquer pessoa*. Para receber aviso de cada inscrição, use na planilha *Ferramentas → Regras de notificação*. Recusas e duplicados (sem dados pessoais) ficam na aba `Erros`.
 - Limitações: o GitHub Pages não define cabeçalhos HTTP (HSTS, frame-ancestors); o limite por minuto é global, não por pessoa.
+
+## Implantação do Apps Script (obrigatório)
+Em **Implantar → Gerenciar implantações → ✏️**: *Executar como* = **Eu**; *Quem pode acessar* = **Qualquer pessoa** (não "Qualquer pessoa com Conta do Google" nem "Somente eu"); *Versão* = **Nova versão**.
+Teste: abra a URL `/exec` em aba anônima. Deve aparecer JSON com `"versao"`. Tela de login do Google = acesso errado e **nenhuma inscrição será gravada**.
