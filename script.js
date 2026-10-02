@@ -3,7 +3,7 @@
 
   // ===== Configuração (único ponto a editar) =====
   const CONFIG = {
-    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzlTIbmDLl1ngxoR34EKaeSduKzhsz_ymntlxmbpjNRt32RIR5fb3N3R9ky-DrFIRkf/exec',
+    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwnKFrLdKQp_fjEBd2V2eA5pFIHLHi0zCv-XQ5X2wKjVIa7dfo3ESeK4GPPi02ec4aQ/exec',
     MIN_SECONDS: 3,        // envio mais rápido que isso é tratado como robô
     TIMEOUT_MS: 40000,
     CONFIRM_TRIES: 12,     // confirmações (1 por segundo) antes de desistir
