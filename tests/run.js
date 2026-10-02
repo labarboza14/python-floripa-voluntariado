@@ -1,0 +1,77 @@
+/* Suíte automatizada: front-end (jsdom + Apps Script simulado) e Code.gs (mocks do Google). Uso: npm test */
+const {JSDOM}=require('jsdom'),fs=require('fs'),vm=require('vm');
+const F=require('path').join(__dirname,'..')+'/';let pass=0,fail=0;const ok=(c,m)=>{c?pass++:(fail++,console.log('  ✗ FALHOU:',m))};
+const GOOD={nome:'Maria da Silva',email:'Maria@Ex.com',whatsapp:'48999998888',perfil:'github.com/maria',motivacao:'Quero aprender e ensinar Python na comunidade.',disponibilidade:'Aprox. 2 horas por semana'};
+async function page(srv){ // srv simula o Apps Script: {blocked, estado, onPost}
+  let now=1e12;const log=[];const dom=new JSDOM(fs.readFileSync(F+'index.html','utf8'),{runScripts:'outside-only',url:'https://x.test/'});const w=dom.window;
+  w.Date.now=()=>now;const st=w.setTimeout;w.setTimeout=(f,ms)=>ms<=1000?(f(),0):st(f,ms);
+  w.fetch=(u,o)=>{log.push({u,o});
+    if(o&&o.method==='POST'){if(srv.blocked)return Promise.resolve({});const p=new URLSearchParams(o.body);srv.onPost&&srv.onPost(p,srv);return Promise.resolve({})}
+    if(srv.blocked)return Promise.reject(new TypeError('Failed to fetch'));
+    return Promise.resolve({json:()=>Promise.resolve({result:'ok',versao:'t',estado:srv.estado||'pendente'})})};
+  w.eval(fs.readFileSync(F+'script.js','utf8'));const d=w.document,$=i=>d.getElementById(i);
+  const fill=(o={})=>{const v={...GOOD,...o};for(const k in v){$(k).value=v[k];$(k).dispatchEvent(new w.Event('input',{bubbles:true}))}d.querySelector('input[name=trilha]').checked=true;$('pacto').checked=true;$('consentimento').checked=true};
+  const submit=async()=>{$('volunteerForm').dispatchEvent(new w.Event('submit',{cancelable:true,bubbles:true}));await new Promise(r=>st(r,60))};
+  return{w,d,$,fill,submit,log,tick:s=>now+=s*1000,posts:()=>log.filter(l=>l.o&&l.o.method==='POST')}}
+const okSrv=()=>({onPost:(p,s)=>{s.estado='gravado'}});
+(async()=>{
+ let p=await page(okSrv());p.tick(10);await p.submit();ok(p.posts().length===0&&p.$('nome-erro').textContent,'vazio: não envia, mostra erros');
+ p=await page(okSrv());p.fill();p.tick(1);await p.submit();ok(p.log.length===0,'rápido demais: nada enviado');
+ p=await page(okSrv());p.fill();p.tick(10);await p.submit();
+ ok(p.posts().length===1&&p.posts()[0].o.mode==='no-cors','envio válido = 1 POST no-cors');
+ const b=new URLSearchParams(p.posts()[0].o.body);ok(/^[a-f0-9-]{16,40}$/i.test(b.get('rid'))&&b.get('email')==='maria@ex.com'&&b.get('whatsapp')==='48999998888'&&b.get('perfil')==='https://github.com/maria'&&b.get('consentimento')==='sim','rid + normalização');
+ ok(p.log.every(l=>!/maria/i.test(l.u)),'sem dados pessoais em URLs');
+ ok(!p.$('sucesso').hidden&&p.$('volunteerForm').hidden,'sucesso SÓ após confirmação do servidor');
+ // BLOQUEADO (login do Google): nunca pode mostrar sucesso
+ p=await page({blocked:true});p.fill();p.tick(10);await p.submit();
+ ok(p.$('sucesso').hidden&&!p.$('volunteerForm').hidden&&/Não conseguimos confirmar/.test(p.$('form-status').textContent),'Apps Script bloqueado => erro, NUNCA sucesso');
+ ok(p.posts().length===0&&p.$('nome').value==='Maria da Silva','bloqueado: não envia no escuro e preserva dados');
+ // servidor nunca confirma
+ p=await page({});p.fill();p.tick(10);await p.submit();ok(p.$('sucesso').hidden&&p.posts().length===1&&/Não conseguimos confirmar/.test(p.$('form-status').textContent)&&p.$('submitBtn').disabled===false,'sem confirmação => erro e botão liberado');
+ const rid1=new URLSearchParams(p.posts()[0].o.body).get('rid');await p.submit();ok(new URLSearchParams(p.posts()[1].o.body).get('rid')===rid1,'nova tentativa reutiliza o mesmo rid (idempotente)');
+ // servidor recusa
+ p=await page({onPost:(q,s)=>{s.estado='erro:consentimento'}});p.fill();p.tick(10);await p.submit();ok(p.$('sucesso').hidden&&/consentimento/.test(p.$('form-status').textContent),'recusa do servidor é mostrada');
+ // retry após gravação tardia: não reenvia
+ p=await page({estado:'gravado'});p.fill();p.tick(10);await p.submit();ok(p.posts().length===0&&!p.$('sucesso').hidden,'já gravado => sucesso sem novo POST');
+ let n=0;p=await page({onPost:(q,s)=>{n++;s.estado='gravado'}});p.fill();p.tick(10);p.$('volunteerForm').dispatchEvent(new p.w.Event('submit',{cancelable:true}));p.$('volunteerForm').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,80));ok(n===1,'duplo clique = 1 POST');
+ const bad=async(f,v)=>{const q=await page(okSrv());q.fill({[f]:v});q.tick(10);await q.submit();return q.log.length===0};
+ ok(await bad('nome','Maria')&&await bad('nome','=HYPERLINK("x") Silva')&&await bad('email','a@b')&&await bad('whatsapp','12')&&await bad('perfil','javascript:alert(1)')&&await bad('motivacao','curto')&&await bad('disponibilidade',''),'validações do cliente');
+ p=await page(okSrv());p.$('whatsapp').value='48999998888';p.$('whatsapp').dispatchEvent(new p.w.Event('input'));ok(p.$('whatsapp').value==='(48) 99999-8888','máscara');
+ // estático
+ for(const f of['index.html','privacidade.html']){const t=fs.readFileSync(F+f,'utf8');
+  ok(!/\sstyle=|<style|\son\w+=|<script(?![^>]*\ssrc)/i.test(t),f+': sem inline');ok(!/unsafe-|connect-src \*/.test(t),f+': CSP sem unsafe');ok(!/fonts\.g|https?:\/\/[^"' )]+\.(js|css)/i.test(t),f+': sem recursos externos');
+  ok(!/CONTATO_AQUI/.test(t),f+': sem placeholder');}
+ {const refs=[...(fs.readFileSync(F+'index.html','utf8')+fs.readFileSync(F+'privacidade.html','utf8')).matchAll(/(?:href|src)="([^"#?:]+)(?:\?[^"]*)?"/g)].map(m=>m[1]);
+  const falta=refs.filter(r=>!fs.existsSync(F+r));ok(refs.length>=3&&falta.length===0,'arquivos referenciados pelo HTML existem'+(falta.length?': '+falta.join(', '):''));}
+ ok(['README.md','CHANGELOG.md','docs/DOCUMENTACAO_TECNICA.md','styles.css','privacidade.html','script.js','Code.gs','package.json','tests/run.js'].every(x=>fs.existsSync(F+x)),'estrutura obrigatória do repositório presente (nomes e pastas corretos)');
+ ok(!fs.existsSync(F+'diagnostico.html')&&!fs.existsSync(F+'diagnostico.js'),'páginas de diagnóstico removidas');
+ console.log('FRONT: '+pass+' ok, '+fail+' falhas');
+ // ---------- Code.gs ----------
+ let errs=[],rows=[],fmt=[],cache={};const mk=()=>{rows=[['Data','Nome','Email']];errs=[];fmt=[];cache={}};mk();
+ const sheet={getLastRow:()=>rows.length,getRange:(r,c,nr,nc)=>typeof r==='string'?{getValue:()=>'',setValue(){}}:{setNumberFormat:f=>fmt.push([r,c,nc,f]),setValue:v=>{rows[r-1]=rows[r-1]||[];rows[r-1][c-1]=v},setValues:a=>{rows[r-1]=rows[r-1]||[];a[0].forEach((v,i)=>rows[r-1][c-1+i]=v)},getValues:()=>rows.slice(r-1,r-1+nr).map(x=>[x[c-1]])}};
+ const SS={getSheetByName:n=>n==='Inscricoes'?sheet:(n==='Erros'?{appendRow:r=>errs.push(r)}:null),insertSheet:()=>({appendRow:r=>errs.push(r)})};
+ const ctx={SpreadsheetApp:{openById:id=>{if(id!=='1KASZc3XRu4o-lMiRRnJu_EEuAdPNhjYCmX0f8Wld_Zc')throw new Error('id');return SS},flush(){}},LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock(){}})},
+  CacheService:{getScriptCache:()=>({get:k=>cache[k],put:(k,v)=>cache[k]=v})},ContentService:{MimeType:{JSON:1},createTextOutput:s=>({setMimeType(){return this},get:()=>JSON.parse(s),getContent:()=>s})},console};
+ vm.createContext(ctx);vm.runInContext(fs.readFileSync(F+'Code.gs','utf8'),ctx);
+ {const cfg=vm.runInContext('CFG',ctx),dd=new JSDOM(fs.readFileSync(F+'index.html','utf8')).window.document;
+  const tr=[...dd.querySelectorAll('input[name=trilha]')].map(i=>i.value),di=[...dd.querySelectorAll('#disponibilidade option')].map(o=>o.value).filter(Boolean);
+  ok(JSON.stringify(tr)===JSON.stringify(cfg.TRILHAS)&&JSON.stringify(di)===JSON.stringify(cfg.DISPONIBILIDADES),'listas do HTML (trilhas/disponibilidade) idênticas às do Code.gs');
+  const ids=[...dd.querySelectorAll('[id]')].map(e=>e.id);ok(new Set(ids).size===ids.length,'sem IDs duplicados no HTML');}
+ const good={nome:'Maria da Silva',email:'maria@ex.com',whatsapp:'48999998888',perfil:'https://github.com/maria',trilhas:'Dados & Métricas, Site & Git',motivacao:'Quero aprender e ensinar Python na comunidade.',disponibilidade:'Aprox. 2 horas por semana',consentimento:'sim',hp:''};
+ const post=o=>ctx.doPost({parameter:o}).get(),get=o=>ctx.doGet({parameter:o}).get();const b0=pass,f0=fail,RID='abcdef0123456789abcd';
+ ok(get({rid:RID}).estado==='pendente','GET: pendente antes do POST');
+ ok(post({...good,rid:RID}).result==='success'&&rows.length===2&&get({rid:RID}).estado==='gravado','grava e GET confirma "gravado"');
+ ok(rows[1][8]==='Sim'&&rows[1][2]==='maria@ex.com'&&fmt.some(f=>f[3]==='@'&&f[1]===2&&f[2]===9),'colunas A–J + formato texto');
+ post({...good,rid:RID});ok(rows.length===2,'mesmo rid reenviado = NÃO duplica');
+ const dup=post({...good,rid:'1111111111111111aaaa'});ok(dup.info==='reenvio'&&rows.length===3&&/linha 2/.test(rows[2][9]),'e-mail repetido => nova linha sinalizada (não descarta)');
+ const n0=rows.length;
+ for(const[o,e]of[[{nome:'Maria'},'nome'],[{email:'x'},'email'],[{whatsapp:'12'},'whatsapp'],[{perfil:'javascript:1'},'perfil'],[{motivacao:'curto'},'motivacao'],[{disponibilidade:'x'},'disponibilidade'],[{consentimento:''},'consentimento'],[{trilhas:'Invasão'},'trilhas']]){
+  const rid='2222222222222222'+Math.random().toString(16).slice(2,6);const r=post({...good,email:Math.random()+'@x.com',...o,rid});ok(r.error===e&&get({rid}).estado==='erro:'+e,'rejeita '+e+' e GET informa o motivo')}
+ ok(rows.length===n0,'nada inválido foi gravado');
+ ok(post({...good,email:'h@x.com',hp:'bot'}).result==='error'&&rows.length===n0&&errs.some(e=>e[1]==='honeypot'),'honeypot: não grava e registra em Erros');
+ post({...good,email:'f@x.com',nome:'=IMPORTXML("http://e") Silva',motivacao:'=HYPERLINK("x") '+'a'.repeat(2000)});const r=rows[rows.length-1];ok(r[1].startsWith('=')&&r[6].length===1000,'fórmula vira texto (@) e é truncada');
+ const g=get({});ok(g.result==='ok'&&g.versao&&g.aba_ok===true&&g.linhas===undefined&&JSON.stringify(get({diag:'1'})).indexOf('linhas')<0,'GET público: só versão/aba, sem contagem de inscrições');
+ ok(get({rid:'<script>'}).estado===undefined,'rid inválido é ignorado');
+ ok(errs.every(e=>!/@|maria/i.test(e[1])),'aba Erros sem dados pessoais');
+ cache={};let lim=0;for(let i=0;i<40;i++)if(post({...good,email:`l${i}@x.com`}).error==='rate_limit')lim++;ok(lim>=9,'limite por minuto');
+ console.log('CODE.GS: '+(pass-b0)+' ok, '+(fail-f0)+' falhas\nTOTAL: '+pass+' ok / '+fail+' falhas');process.exit(fail?1:0)})();
