@@ -5,7 +5,8 @@
   const CONFIG = {
     SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzlTIbmDLl1ngxoR34EKaeSduKzhsz_ymntlxmbpjNRt32RIR5fb3N3R9ky-DrFIRkf/exec',
     MIN_SECONDS: 3,        // envio mais rápido que isso é tratado como robô
-    TIMEOUT_MS: 15000,
+    TIMEOUT_MS: 40000,
+    CONFIRM_TRIES: 12,     // confirmações (1 por segundo) antes de desistir
     DRAFT_KEY: 'pf_rascunho_v2'
   };
 
@@ -130,6 +131,27 @@
     const box = $('sucesso'); box.hidden = false; box.focus();
   }
 
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const newRid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + Math.random().toString(16).slice(2) + '0000000000')
+    .replace(/[^a-f0-9-]/gi, '');
+  let rid = null;   // reutilizado em novas tentativas do MESMO envio (o servidor não duplica)
+
+  // GET lido por CORS: falha se o Apps Script exigir login ou estiver fora do ar.
+  async function consultar(signal) {
+    const r = await fetch(CONFIG.SCRIPT_URL + '?rid=' + rid + '&t=' + Date.now(), { signal });
+    const j = await r.json();
+    if (!j || !j.versao) throw new Error('servico_inacessivel');
+    return j;
+  }
+
+  function erroServidor(codigo) {
+    rid = null;
+    const msg = codigo === 'rate_limit' ? 'Muitos envios no momento. Tente novamente em 1 minuto.'
+      : codigo === 'internal' ? 'Erro temporário no servidor. Tente novamente em instantes.'
+      : 'O servidor não aceitou o campo "' + codigo + '". Revise os dados e tente novamente.';
+    setBusy(false, 'Tentar novamente'); setStatus(msg, true);
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (busy) return;
@@ -138,7 +160,9 @@
     if (!validateAll()) { setStatus('Revise os campos destacados antes de enviar.', true); return; }
     if ((Date.now() - loadedAt) / 1000 < CONFIG.MIN_SECONDS) { setStatus('Só um instante… confira os dados e envie novamente.', true); return; }
 
+    rid = rid || newRid();
     const body = new URLSearchParams({
+      rid,
       nome: clean($('nome').value),
       email: $('email').value.trim().toLowerCase(),
       whatsapp: digits($('whatsapp').value),
@@ -147,29 +171,29 @@
       motivacao: clean($('motivacao').value),
       disponibilidade: $('disponibilidade').value,
       consentimento: 'sim',
-      hp: $('hp_contato').value          // honeypot: vai ao servidor, que recusa e REGISTRA na aba Erros (sem falso sucesso no cliente)
+      hp: $('hp_contato').value          // honeypot: o servidor recusa e registra na aba Erros
     });
 
     setBusy(true, 'Enviando…');
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), CONFIG.TIMEOUT_MS);
     try {
-      // Apps Script ContentService não oferece um contrato CORS confiável para
-      // leitura da resposta no browser. O POST é simples (URLSearchParams),
-      // então não há preflight; no-cors permite que a requisição chegue ao
-      // Web App sem depender da leitura da resposta/redirect.
-      await fetch(CONFIG.SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        body,
-        signal: ctrl.signal
-      });
-
-      // Em no-cors a resposta é opaca por definição. A confirmação aqui
-      // significa que o browser conseguiu despachar a requisição ao endpoint.
-      showSuccess();
+      // 1) O serviço está acessível ao público? (falha aqui = implantação com login/URL errada: NÃO envia nem finge sucesso)
+      let est = (await consultar(ctrl.signal)).estado;
+      // 2) Envia (no-cors: despacha sem depender de ler a resposta do POST)
+      if (est !== 'gravado') {
+        await fetch(CONFIG.SCRIPT_URL, { method: 'POST', mode: 'no-cors', body, signal: ctrl.signal });
+        // 3) Confirma por GET que o servidor registrou ESTE envio
+        for (let i = 0; i < CONFIG.CONFIRM_TRIES && est !== 'gravado' && !String(est).startsWith('erro:'); i++) {
+          await sleep(1000);
+          est = (await consultar(ctrl.signal)).estado;
+        }
+      }
+      if (est === 'gravado') { showSuccess(); }
+      else if (String(est).startsWith('erro:')) { erroServidor(est.slice(5)); }
+      else { throw new Error('sem_confirmacao'); }
     } catch (err) {
-      console.error(err);
+      console.error('Falha no envio:', err, '— se for "Failed to fetch": a implantação do Apps Script precisa de "Executar como: Eu" e "Quem pode acessar: Qualquer pessoa".');
       setBusy(false, 'Tentar novamente');
       setStatus('Não conseguimos confirmar o envio. Seus dados continuam aqui: tente novamente em instantes ou fale com a organização.', true);
     } finally { clearTimeout(timer); }
