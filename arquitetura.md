@@ -1,27 +1,27 @@
 # Arquitetura e segurança
 
-## Fluxo
-1. A pessoa preenche o formulário; `script.js` valida (nome, e-mail, WhatsApp, link, trilhas, motivação, disponibilidade, consentimento).
-2. O envio é um **POST** (`fetch`, `mode: no-cors`, corpo `application/x-www-form-urlencoded`) para o Web App do Apps Script. Dados pessoais **nunca** vão na URL.
-3. `Code.gs` valida tudo de novo, barra robôs e duplicados e grava uma linha na aba `Inscricoes` (colunas A–I).
-4. A página lê a resposta JSON do Apps Script e mostra o erro real. Se a leitura (CORS) falhar, reenvia em `no-cors` (seguro: e-mail repetido é ignorado).
+## Fluxo de envio (com confirmação real)
+1. `script.js` valida o formulário e gera um `rid` aleatório (uso único).
+2. **GET** `…/exec?rid=<id>` (lido por CORS): confirma que o Apps Script está público. Se falhar, **nada é enviado** e o formulário avisa (nunca finge sucesso).
+3. **POST** `no-cors` com os dados + `rid` (não depende de ler a resposta).
+4. O servidor valida de novo, grava na aba `Inscricoes` e registra o desfecho no cache sob o `rid`.
+5. O navegador consulta **GET** `?rid=<id>` a cada 1 s (até 12×): `gravado` → sucesso; `erro:<campo>` → mostra o motivo; sem resposta → erro com os dados preservados. Reenviar usa o mesmo `rid`, então **não duplica**.
+
+## Implantação do Apps Script (obrigatório)
+`Implantar → Gerenciar implantações → ✏️`: **Executar como: Eu** | **Quem pode acessar: Qualquer pessoa** | **Versão: Nova versão**.
+Teste em **janela anônima**: a URL `/exec` deve mostrar `{"result":"ok","versao":"2026-10-01.6","aba_ok":true}`. Tela de login = acesso errado (nada grava). Editar a implantação existente mantém a URL; "Nova implantação" cria URL nova (atualize `SCRIPT_URL` em `script.js`).
 
 ## Defesas
 | Risco | Proteção |
 |---|---|
-| Injeção de fórmula na planilha | Colunas B:I gravadas com formato texto (`@`) |
-| Spam/bots | Campo-armadilha `website`, tempo mínimo de 3 s, limite global por minuto, validação no servidor |
-| Dados inválidos/enormes | Limites e listas permitidas (trilhas, disponibilidade) no servidor |
-| Duplicados | E-mail repetido é ignorado |
-| XSS / scripts de terceiros | CSP por `<meta>`: sem scripts/estilos inline, `connect-src` só para o Google |
-| Vazamento de PII na URL/logs | Sem GET com dados; `doGet` só responde "no ar" |
-| LGPD | Consentimento explícito, política em `privacidade.html`, sem cookies/fontes externas |
+| Injeção de fórmula | Colunas B:J em formato texto (`@`) |
+| Spam/bots | Campo-armadilha `hp_contato` (recusado e registrado), tempo mínimo de 3 s, limite global por minuto, validação no servidor |
+| Dados inválidos/enormes | Limites e listas permitidas no servidor |
+| Duplicidade | `rid` idempotente; e-mail repetido vira linha marcada "Reenvio" (nunca descarta nem sobrescreve) |
+| XSS / terceiros | CSP por `<meta>`: sem inline, `connect-src` só Google, sem fontes/CDN externos |
+| PII em URL/logs | Dados só no corpo do POST; a aba `Erros` guarda apenas motivos |
+| Exposição pública | `GET` expõe só versão, `aba_ok` e estado de um `rid` aleatório; sem contagem nem dados |
+| LGPD | Consentimento explícito, `privacidade.html`, sem cookies |
 
-## Manutenção
-- Após editar `Code.gs`: **Nova versão** da implantação (salvar não atualiza o `/exec`).
-- Acesso: *Executar como Eu* / *Qualquer pessoa*. Para receber aviso de cada inscrição, use na planilha *Ferramentas → Regras de notificação*. Recusas e duplicados (sem dados pessoais) ficam na aba `Erros`.
-- Limitações: o GitHub Pages não define cabeçalhos HTTP (HSTS, frame-ancestors); o limite por minuto é global, não por pessoa.
-
-## Implantação do Apps Script (obrigatório)
-Em **Implantar → Gerenciar implantações → ✏️**: *Executar como* = **Eu**; *Quem pode acessar* = **Qualquer pessoa** (não "Qualquer pessoa com Conta do Google" nem "Somente eu"); *Versão* = **Nova versão**.
-Teste: abra a URL `/exec` em aba anônima. Deve aparecer JSON com `"versao"`. Tela de login do Google = acesso errado e **nenhuma inscrição será gravada**.
+## Limites conhecidos
+GitHub Pages não define cabeçalhos HTTP (HSTS, frame-ancestors). O limite por minuto é global. A planilha contém dados pessoais: mantenha o acesso restrito aos organizadores.
