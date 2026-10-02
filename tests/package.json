@@ -1,0 +1,8 @@
+{
+  "name": "python-floripa-voluntariado",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Inscrição de voluntários da Python Floripa (site estático + Google Apps Script + Google Sheets)",
+  "scripts": { "test": "node tests/run.js", "serve": "python3 -m http.server 8000" },
+  "devDependencies": { "jsdom": "^30.1.0" }
+}
