@@ -1,65 +1,74 @@
 /**
- * Python Floripa - Voluntariado | Web App (Apps Script vinculado à planilha)
- * Implantação: Executar como "Eu" | Acesso "Qualquer pessoa". Após editar: Implantar > Gerenciar > Nova versão.
+ * Python Floripa - Voluntariado | Web App (Apps Script)
+ * IMPLANTAÇÃO: Executar como "Eu" | Quem pode acessar "Qualquer pessoa". Após editar: Implantar > Gerenciar > ✏️ > Nova versão.
  * Colunas: A Data/Hora | B Nome | C Email | D WhatsApp | E Perfil | F Trilhas | G Motivacao | H Disponibilidade | I Consentimento LGPD | J Observação
+ *
+ * Protocolo de confirmação (não depende de ler a resposta do POST):
+ *   POST  (com rid)         -> grava e registra o resultado no cache sob o rid
+ *   GET ?rid=<id>           -> {estado: 'gravado' | 'erro:<campo>' | 'pendente'}   (o rid é aleatório e de uso único)
  */
 const CFG = {
-  VERSAO: '2026-09-30.5',
-  SHEET_ID: '1KASZc3XRu4o-lMiRRnJu_EEuAdPNhjYCmX0f8Wld_Zc',  // abre a planilha pelo ID: não depende de o script estar vinculado a ela
+  VERSAO: '2026-10-01.6',
+  SHEET_ID: '1KASZc3XRu4o-lMiRRnJu_EEuAdPNhjYCmX0f8Wld_Zc',
   ABA: 'Inscricoes',
-  MAX_POR_MINUTO: 30,         // limite global (proteção contra flood)
+  MAX_POR_MINUTO: 30,
   TRILHAS: ['Dados & Métricas', 'Site & Git', 'Comunicação & Redes', 'Apoio no Dia do Evento'],
   DISPONIBILIDADES: ['Apenas no dia dos eventos presenciais', 'Aprox. 2 horas por semana',
                      'Aprox. 4 horas por semana', 'Mais de 4 horas por semana']
 };
 
-// Abra a URL /exec no navegador: prova qual versão está publicada e se o script alcança a aba (sem expor dados).
+function planilha_() { return SpreadsheetApp.openById(CFG.SHEET_ID); }
+function rid_(v) { v = String(v || ''); return /^[a-f0-9-]{16,40}$/i.test(v) ? v : ''; }
+
 function doGet(e) {
   try {
-    const aba = planilha_().getSheetByName(CFG.ABA);
-    const r = { result: 'ok', versao: CFG.VERSAO, aba_ok: !!aba };
-    if (e && e.parameter && e.parameter.diag === '1' && aba) r.linhas = Math.max(aba.getLastRow() - 1, 0);  // só contagem, usada pelo diagnostico.html
+    const r = { result: 'ok', versao: CFG.VERSAO, aba_ok: !!planilha_().getSheetByName(CFG.ABA) };
+    const rid = rid_(e && e.parameter && e.parameter.rid);
+    if (rid) {
+      const c = CacheService.getScriptCache();
+      r.estado = c.get('ok_' + rid) ? 'gravado' : (c.get('err_' + rid) ? 'erro:' + c.get('err_' + rid) : 'pendente');
+    }
     return out_(r);
   } catch (err) {
-    return out_({ result: 'error', versao: CFG.VERSAO, error: 'sem_acesso_planilha', detalhe: String(err).slice(0, 150) });
+    return out_({ result: 'error', versao: CFG.VERSAO, error: 'sem_acesso_planilha' });
   }
-}
-
-function planilha_() {
-  return CFG.SHEET_ID ? SpreadsheetApp.openById(CFG.SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
 }
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
+  const p = (e && e.parameter) || {};
+  const rid = rid_(p.rid), cache = CacheService.getScriptCache();
+  const fim = function (obj) {                       // registra o desfecho sob o rid para o GET de confirmação
+    try { if (rid) cache.put(obj.result === 'success' ? 'ok_' + rid : 'err_' + rid, obj.result === 'success' ? '1' : String(obj.error).slice(0, 30), 3600); } catch (_) {}
+    return out_(obj);
+  };
   try {
     if (!lock.tryLock(15000)) return out_({ result: 'error', error: 'busy' });
-    const p = (e && e.parameter) || {};
-
-    if (p.hp) { logErro_('honeypot'); return out_({ result: 'success' }); }
-    if (!limiteOk_()) { logErro_('rate_limit'); return out_({ result: 'error', error: 'rate_limit' }); }
+    if (rid && cache.get('ok_' + rid)) return out_({ result: 'success', info: 'idempotente' });   // retry do mesmo envio: não duplica
+    if (p.hp) { logErro_('honeypot'); return fim({ result: 'error', error: 'rejeitado' }); }
+    if (!limiteOk_()) { logErro_('rate_limit'); return fim({ result: 'error', error: 'rate_limit' }); }
 
     const d = validar_(p);
-    if (d.erro) { logErro_('campo_invalido: ' + d.erro); return out_({ result: 'error', error: d.erro }); }
+    if (d.erro) { logErro_('campo_invalido: ' + d.erro); return fim({ result: 'error', error: d.erro }); }
 
     const sheet = planilha_().getSheetByName(CFG.ABA);
     if (!sheet) throw new Error('Aba "' + CFG.ABA + '" não encontrada');
     garantirCabecalho_(sheet);
 
-    const anterior = linhaDoEmail_(sheet, d.email);   // 0 se for a primeira vez
-
+    const anterior = linhaDoEmail_(sheet, d.email);
     const linha = sheet.getLastRow() + 1;
     const obs = anterior ? 'Reenvio (e-mail já cadastrado na linha ' + anterior + ')' : '';
-    // Formato texto (@) em B:J => nada digitado vira fórmula (ex.: =IMPORTXML, =HYPERLINK).
+    // Formato texto (@): nada digitado vira fórmula (=IMPORTXML, =HYPERLINK...).
     sheet.getRange(linha, 2, 1, 9).setNumberFormat('@');
     sheet.getRange(linha, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
     sheet.getRange(linha, 1).setValue(new Date());
     sheet.getRange(linha, 2, 1, 9).setValues([[d.nome, d.email, d.whatsapp, d.perfil, d.trilhas, d.motivacao, d.disponibilidade, 'Sim', obs]]);
-
-    return out_({ result: 'success', info: anterior ? 'reenvio' : 'criado' });
+    SpreadsheetApp.flush();
+    return fim({ result: 'success', info: anterior ? 'reenvio' : 'criado' });
   } catch (err) {
     console.error(err);
-    try { logErro_('excecao: ' + err); } catch (_) {}
-    return out_({ result: 'error', error: 'internal' });
+    logErro_('excecao: ' + err);
+    return fim({ result: 'error', error: 'internal' });
   } finally {
     try { lock.releaseLock(); } catch (_) {}
   }
@@ -78,11 +87,9 @@ function validar_(p) {
   if (motivacao.length < 20) return { erro: 'motivacao' };
   if (CFG.DISPONIBILIDADES.indexOf(p.disponibilidade) < 0) return { erro: 'disponibilidade' };
   if (p.consentimento !== 'sim') return { erro: 'consentimento' };
-
   const trilhas = String(p.trilhas || '').split(',').map(function (s) { return s.trim(); })
     .filter(function (s) { return CFG.TRILHAS.indexOf(s) >= 0; });
   if (!trilhas.length) return { erro: 'trilhas' };
-
   return { nome: nome, email: email, whatsapp: whatsapp, perfil: perfil, motivacao: motivacao,
            disponibilidade: p.disponibilidade, trilhas: trilhas.join(', ') };
 }
@@ -107,23 +114,21 @@ function garantirCabecalho_(sheet) {
   if (!sheet.getRange('J1').getValue()) sheet.getRange('J1').setValue('Observação');
 }
 
+function logErro_(motivo) {                           // só o MOTIVO, nunca dados pessoais; nunca derruba o fluxo
+  try {
+    const ss = planilha_();
+    (ss.getSheetByName('Erros') || ss.insertSheet('Erros')).appendRow([new Date(), String(motivo).slice(0, 200)]);
+  } catch (e) { console.error('logErro_ falhou', e); }
+}
+
 function out_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Registra só o MOTIVO (nunca dados pessoais) para facilitar o diagnóstico.
-function logErro_(motivo) {
-  try {                                   // o log nunca pode derrubar o fluxo principal
-    const ss = planilha_();
-    const aba = ss.getSheetByName('Erros') || ss.insertSheet('Erros');
-    aba.appendRow([new Date(), String(motivo).slice(0, 200)]);
-  } catch (e) { console.error('logErro_ falhou', e); }
-}
-
-// Rode UMA VEZ no editor (▶ testarGravacao): autoriza o script e grava/remove uma linha de teste.
+// Rode UMA VEZ no editor (▶ testarGravacao): autoriza o script e grava uma linha de teste (apague depois).
 function testarGravacao() {
-  const r = doPost({ parameter: { nome: 'Teste Diagnostico', email: 'teste+' + Date.now() + '@exemplo.com',
-    whatsapp: '48999998888', perfil: '', trilhas: CFG.TRILHAS[0], motivacao: 'Linha de teste do diagnostico do script.',
+  const r = doPost({ parameter: { nome: 'Teste Diagnostico', email: 'teste+' + Date.now() + '@exemplo.com', whatsapp: '48999998888',
+    perfil: '', trilhas: CFG.TRILHAS[0], motivacao: 'Linha de teste do diagnostico do script.',
     disponibilidade: CFG.DISPONIBILIDADES[0], consentimento: 'sim', hp: '' } });
   console.log(r.getContent());
 }
